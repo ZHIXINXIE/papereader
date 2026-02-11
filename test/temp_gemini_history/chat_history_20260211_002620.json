@@ -1,0 +1,29 @@
+{
+    "cache": null,
+    "turns": [
+        {
+            "user": {
+                "role": "user",
+                "parts": [
+                    {
+                        "text": "Hello, who are you?"
+                    }
+                ]
+            },
+            "model": {
+                "role": "model",
+                "parts": [
+                    {
+                        "text": "I am a large language model, trained by Google."
+                    }
+                ]
+            },
+            "meta": {
+                "timestamp": "20260211_002620",
+                "cost": 3.65e-05,
+                "time_cost": 2.3285648822784424,
+                "model_name": "gemini-3-flash-preview"
+            }
+        }
+    ]
+}

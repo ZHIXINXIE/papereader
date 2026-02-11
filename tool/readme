@@ -1,0 +1,150 @@
+1. 最后经过实验,在本地做总结摘要以及翻译都太慢了,所以最后只保留了embedding的功能.
+2. 关于gemini的cost calculation,发现token count有问题,记录如下
+        """
+        google在计算token的时候是有bug的.举例而言,运行https://ai.google.dev/gemini-api/docs/caching?hl=zh-cn&lang=python#pdfs_1的示例程序:
+        from google import genai
+        from google.genai import types
+        import io
+        import httpx
+
+        client = genai.Client()
+
+        long_context_pdf_path = "https://sma.nasa.gov/SignificantIncidents/assets/a11_missionreport.pdf"
+
+        # Retrieve and upload the PDF using the File API
+        doc_io = io.BytesIO(httpx.get(long_context_pdf_path).content)
+
+        document = client.files.upload(
+        file=doc_io,
+        config=dict(mime_type='application/pdf')
+        )
+
+        model_name = "gemini-3-flash-preview"
+        system_instruction = "You are an expert analyzing transcripts."
+
+        # Create a cached content object
+        cache = client.caches.create(
+            model=model_name,
+            config=types.CreateCachedContentConfig(
+            system_instruction=system_instruction,
+            contents=[document],
+            )
+        )
+
+        print(f'{cache=}')
+
+        response = client.models.generate_content(
+        model=model_name,
+        contents="Please summarize this transcript",
+        config=types.GenerateContentConfig(
+            cached_content=cache.name
+        ))
+
+        print(f'{response.usage_metadata=}')
+
+        print('\n\n', response.text)
+        最后的user_metadata是
+        response.usage_metadata=GenerateContentResponseUsageMetadata(
+        cache_tokens_details=[
+            ModalityTokenCount(
+            modality=<MediaModality.TEXT: 'TEXT'>,
+            token_count=9
+            ),
+            ModalityTokenCount(
+            modality=<MediaModality.DOCUMENT: 'DOCUMENT'>,
+            token_count=201040
+            ),
+        ],
+        cached_content_token_count=201049,
+        candidates_token_count=972,
+        prompt_token_count=195170,
+        prompt_tokens_details=[
+            ModalityTokenCount(
+            modality=<MediaModality.IMAGE: 'IMAGE'>,
+            token_count=195156
+            ),
+            ModalityTokenCount(
+            modality=<MediaModality.TEXT: 'TEXT'>,
+            token_count=14
+            ),
+        ],
+        thoughts_token_count=1452,
+        total_token_count=197594
+        )
+        也就是说,cached_token_count是大于prompt_token_count的.这是不符合代码中对prompt_token的定义的.
+        (具体定义可以看\site-packages\google\genai\types.py)的  
+            prompt_token_count: Optional[int] = Field(
+            default=None,
+            description="The total number of tokens in the prompt. This includes any text, images, or other media provided in the request. When `cached_content` is set, this also includes the number of tokens in the cached content.",
+        )
+        所以在计算cost的时候,我们以prompt_tokens_details当中的<MediaModality.IMAGE: 'IMAGE'>作为cache的token数,而<MediaModality.TEXT: 'TEXT'>作为query,也就是普通的input的token数.
+        让我来具体举一个例子.我连续两次对SFake进行解读,代码如下:
+        chatbot = Gemini_interface()
+        response_text, history, cost = chatbot.chat(r"E:\Project\paperreader\code2\test\Security26_SFake.pdf", "请你解读一下这篇文章.")
+        print(response_text)
+        print(history)
+        print(cost)
+        response_text, history, cost = chatbot.chat(pdf = None, text = "请你看看这篇文章如何复现.", history=history)
+        print(response_text)
+        print(history)
+        print(cost)
+        结果是,第一次调用的结果:
+        response.usage_metadata
+        GenerateContentResponseUsageMetadata(
+        cache_tokens_details=[
+            ModalityTokenCount(
+            modality=<MediaModality.TEXT: 'TEXT'>,
+            token_count=1
+            ),
+            ModalityTokenCount(
+            modality=<MediaModality.DOCUMENT: 'DOCUMENT'>,
+            token_count=10640
+            ),
+        ],
+        cached_content_token_count=10641,
+        candidates_token_count=1121,
+        prompt_token_count=9888,
+        prompt_tokens_details=[
+            ModalityTokenCount(
+            modality=<MediaModality.IMAGE: 'IMAGE'>,
+            token_count=9880
+            ),
+            ModalityTokenCount(
+            modality=<MediaModality.TEXT: 'TEXT'>,
+            token_count=8
+            ),
+        ],
+        thoughts_token_count=781,
+        total_token_count=11790
+        )
+        在我们新的算法中,缓存的text就是9880,而query的text就是8.
+        第二次的结果是:
+        GenerateContentResponseUsageMetadata(
+        cache_tokens_details=[
+            ModalityTokenCount(
+            modality=<MediaModality.TEXT: 'TEXT'>,
+            token_count=1
+            ),
+            ModalityTokenCount(
+            modality=<MediaModality.DOCUMENT: 'DOCUMENT'>,
+            token_count=10640
+            ),
+        ],
+        cached_content_token_count=10641,
+        candidates_token_count=1222,
+        prompt_token_count=11019,
+        prompt_tokens_details=[
+            ModalityTokenCount(
+            modality=<MediaModality.TEXT: 'TEXT'>,
+            token_count=1139
+            ),
+            ModalityTokenCount(
+            modality=<MediaModality.IMAGE: 'IMAGE'>,
+            token_count=9880
+            ),
+        ],
+        thoughts_token_count=721,
+        total_token_count=12962
+        )
+        同样,缓存的text就是9880,而query的text就是1139.(这个1139之所以那么多,是因为加上了第一轮的query和response,第一轮的candidatetoken是1121, query是8,所以可以推算出,第二轮的query对应的token数是1139-8-1121 = 10.但是在计算第二轮对话的token的时候,也不能只计算10,而是需要把第二轮的全部的token input给计算进去.也就是要算为1139)
+        """
