@@ -42,24 +42,34 @@ You need a Google Gemini API Key to use the AI features.
 
 1.  Get your API Key from [Google AI Studio](https://aistudio.google.com/).
     从 [Google AI Studio](https://aistudio.google.com/) 获取你的 API Key。
-2.  Create a `.env` file in the `backend` directory:
-    在 `backend` 目录下创建一个 `.env` 文件：
+2.  Set the `GEMINI_API_KEY` environment variable:
+    设置 `GEMINI_API_KEY` 环境变量：
 
     **Windows (PowerShell):**
     ```powershell
-    cd backend
-    New-Item .env -Type File
-    Set-Content .env "GEMINI_API_KEY=your_api_key_here"
+    $env:GEMINI_API_KEY="your_api_key_here"
     ```
 
     **Mac/Linux:**
     ```bash
-    cd backend
-    echo "GEMINI_API_KEY=your_api_key_here" > .env
+    export GEMINI_API_KEY="your_api_key_here"
     ```
 
     *(Replace `your_api_key_here` with your actual API key)*
     *（将 `your_api_key_here` 替换为你实际的 API key）*
+
+    **Verify configuration / 验证配置:**
+
+    You can run these commands to check if the key is set correctly:
+    你可以运行以下命令来检查 Key 是否配置正确：
+
+    ```bash
+    # Windows (PowerShell)
+    echo $env:GEMINI_API_KEY
+
+    # Mac/Linux
+    echo $GEMINI_API_KEY
+    ```
 
 ### 3. Install Dependencies / 安装依赖
 
