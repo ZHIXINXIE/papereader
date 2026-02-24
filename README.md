@@ -16,23 +16,13 @@ Paper Reader 是一个本地 AI 驱动的学术论文阅读助手。它帮助你
 - **Reading Room**: Dedicated interface for reading and chatting with papers.
   **阅读室**：专用于阅读和与论文对话的界面。
 
-## Prerequisites / 前置要求
-
-Before you begin, ensure you have the following installed:
-在开始之前，请确保你已经安装了以下软件：
-
-1.  **Python 3.10+**: [Download Python](https://www.python.org/downloads/)
-    **Python 3.10+**：[下载 Python](https://www.python.org/downloads/)
-2.  **Node.js 18+**: [Download Node.js](https://nodejs.org/) (Includes npm)
-    **Node.js 18+**：[下载 Node.js](https://nodejs.org/)（包含 npm）
-
 ## Installation & Setup / 安装与配置
 
 ### 1. Clone the Repository / 克隆仓库
 
 ```bash
-git clone <repository_url>
-cd code
+git clone https://github.com/ZHIXINXIE/papereader.git
+cd papereader
 ```
 
 ### 2. Configure Environment Variables / 配置环境变量
@@ -87,12 +77,17 @@ conda activate paperreader
 
 # Install requirements / 安装依赖包
 pip install -r backend/requirements.txt
+
+# Install node.js by conda / 使用 Conda 安装 node.js
+conda install -n paperreader -c conda-forge nodejs
 ```
+Note: after installing node.js, you need to add the node address to the environment variables, otherwise the startup script will report an error.
+注意,在安装 node.js 后,你需要将 node 的地址添加到环境变量中,否则启动脚本会报错。
 
-**Frontend (Node.js) / 前端 (Node.js):**
+Directly run `node -v` in the terminal to check if node.js is installed successfully.
+在终端直接运行 `node -v` 来检查 node 是否安装成功。 
 
-The startup script will handle this automatically, but you can also install manually:
-启动脚本会自动处理此步骤，但你也可以手动安装：
+**Frontend (Node components) / 前端 (Node.js 组件):**
 
 ```bash
 cd frontend
@@ -104,12 +99,13 @@ npm install
 We provide a convenient startup script that launches both the backend and frontend services.
 我们提供了一个便捷的启动脚本，可以同时启动后端和前端服务。
 
-**Make sure you are in the root `code` directory.**
-**请确保你位于根目录 `code` 下。**
+**Make sure you are in the root `papereader` directory.**
+**请确保你位于根目录 `papereader` 下。**
 
 ```bash
 # Ensure your virtual environment is activated if you used one
 # 如果你使用了虚拟环境，请确保已激活
+cd ..
 python start.py
 ```
 
