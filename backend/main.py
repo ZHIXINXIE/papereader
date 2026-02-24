@@ -1,0 +1,78 @@
+from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+import uvicorn
+import os
+import asyncio
+import logging
+from dotenv import load_dotenv
+
+load_dotenv()
+
+from fastapi.staticfiles import StaticFiles
+from database import engine, Base, SessionLocal, DATA_DIR
+import models
+from routers import templates, tasks, papers, collections
+from processor import processor_loop
+
+# Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
+# Create tables
+models.Base.metadata.create_all(bind=engine)
+
+app = FastAPI(title="Paper Reader API", version="1.0.0")
+
+# CORS configuration
+origins = [
+    "http://localhost:5173",  # Vite default port
+    "http://127.0.0.1:5173",
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+# Mount PDF storage
+# Ensure pdf directory exists
+os.makedirs(os.path.join(DATA_DIR, "pdfs"), exist_ok=True)
+app.mount("/api/pdfs", StaticFiles(directory=os.path.join(DATA_DIR, "pdfs")), name="pdfs")
+
+# Include routers
+app.include_router(templates.router)
+app.include_router(tasks.router)
+app.include_router(papers.router)
+app.include_router(collections.router)
+
+@app.on_event("startup")
+async def startup_event():
+    logger.info("Starting up...")
+    
+    # Create default user if not exists
+    db = SessionLocal()
+    try:
+        from routers.tasks import DEFAULT_USER_ID
+        user = db.query(models.User).filter(models.User.id == DEFAULT_USER_ID).first()
+        if not user:
+            logger.info("Creating default user")
+            user = models.User(id=DEFAULT_USER_ID, email="user@example.com", name="Default User")
+            db.add(user)
+            db.commit()
+    except Exception as e:
+        logger.error(f"Error creating default user: {e}")
+    finally:
+        db.close()
+        
+    # Start background processor
+    asyncio.create_task(processor_loop())
+
+@app.get("/")
+async def root():
+    return {"message": "Welcome to Paper Reader API"}
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
