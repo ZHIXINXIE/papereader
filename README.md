@@ -108,8 +108,8 @@ python start.py
 
 ## Troubleshooting / 故障排除
 
--   **"GEMINI_API_KEY not found"**: Ensure you created the `.env` file in the `backend` folder correctly.
-    **"GEMINI_API_KEY not found"**：确保你在 `backend` 文件夹中正确创建了 `.env` 文件。
+-   **"GEMINI_API_KEY not found"**: Please configure your `GEMINI_API_KEY` in the environment variables.
+    **"GEMINI_API_KEY not found"**：请在环境变量中配置你的 `GEMINI_API_KEY`。
 -   **Node modules missing**: If `start.py` fails to install frontend dependencies, try running `npm install` manually inside the `frontend` folder.
     **Node modules missing**：如果 `start.py` 安装前端依赖失败，请尝试在 `frontend` 文件夹内手动运行 `npm install`。
 -   **Port already in use**: Ensure ports 8000 (Backend) and 5173 (Frontend) are free.
