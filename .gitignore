@@ -1,6 +1,6 @@
 # User requested ignore
 data/
-
+test/
 # Python
 __pycache__/
 *.pyc

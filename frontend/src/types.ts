@@ -27,6 +27,12 @@ export interface Task {
   statistics?: TaskStatistics;
 }
 
+export interface Interpretation {
+  content: string;
+  template_used: string;
+  created_at: string;
+}
+
 export interface Paper {
   id: string;
   task_id: string;
@@ -37,6 +43,7 @@ export interface Paper {
   status: string;
   failure_reason?: string;
   created_at: string;
+  interpretation?: Interpretation;
 }
 
 export interface ChatMessage {

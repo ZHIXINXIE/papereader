@@ -31,6 +31,14 @@ class PaperBase(BaseModel):
 class PaperCreate(BaseModel):
     titles: List[str]
 
+class Interpretation(BaseModel):
+    content: str
+    template_used: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True
+
 class Paper(PaperBase):
     id: str
     task_id: str
@@ -40,6 +48,7 @@ class Paper(PaperBase):
     status: str
     failure_reason: Optional[str] = None
     created_at: datetime
+    interpretation: Optional[Interpretation] = None
 
     class Config:
         from_attributes = True
@@ -76,3 +85,7 @@ class TaskWithStats(Task):
 
 class TaskBatchDelete(BaseModel):
     ids: List[str]
+
+class ReReadRequest(BaseModel):
+    template_id: Optional[str] = None
+    model_name: Optional[str] = None

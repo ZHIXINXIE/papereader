@@ -60,6 +60,9 @@ class Paper(Base):
     source_url = Column(String)
     status = Column(String, default="queued") # queued, processing, done, failed, skipped
     failure_reason = Column(Text)
+    # Overrides for re-read functionality
+    template_id = Column(String, ForeignKey("templates.id"), nullable=True)
+    model_name = Column(String, nullable=True)
     created_at = Column(DateTime(timezone=True), server_default=func.now())
 
     task = relationship("Task", back_populates="papers")

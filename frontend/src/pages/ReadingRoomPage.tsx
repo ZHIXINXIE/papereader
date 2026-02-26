@@ -1,7 +1,9 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Send, FileText, MessageSquare, BookOpen, ChevronLeft, ChevronRight, Save, FolderOpen, FolderPlus, Trash2, Check, ChevronDown } from 'lucide-react';
+import { Send, FileText, MessageSquare, BookOpen, ChevronLeft, ChevronRight, Save, FolderOpen, FolderPlus, Trash2, Check, ChevronDown, MessageSquarePlus, X } from 'lucide-react';
 import ReactMarkdown from 'react-markdown';
+import remarkMath from 'remark-math';
+import rehypeKatex from 'rehype-katex';
 import Layout from '../components/Layout';
 import Sidebar from '../components/Sidebar';
 import { papersApi, collectionsApi, tasksApi } from '../api/services';
@@ -19,6 +21,7 @@ const ReadingRoomPage: React.FC = () => {
   const [savingNotes, setSavingNotes] = useState(false);
   const [activeTab, setActiveTab] = useState<'chat' | 'notes' | 'collections'>('chat');
   const chatEndRef = useRef<HTMLDivElement>(null);
+  const textareaRef = useRef<HTMLTextAreaElement>(null);
   
   // Resizable Panel State
   const [rightPanelWidth, setRightPanelWidth] = useState(384); // Default 96 (384px)
@@ -30,6 +33,7 @@ const ReadingRoomPage: React.FC = () => {
   const [paperCollections, setPaperCollections] = useState<Collection[]>([]);
   const [loadingCollections, setLoadingCollections] = useState(false);
   const [newCollectionName, setNewCollectionName] = useState('');
+  const [targetParentCollection, setTargetParentCollection] = useState<{id: string, name: string} | null>(null);
 
   // Navigator State
   // Moved to Sidebar
@@ -84,6 +88,9 @@ const ReadingRoomPage: React.FC = () => {
     const userMsg: ChatMessage = { role: 'user', content: input };
     setMessages(prev => [...prev, userMsg]);
     setInput('');
+    if (textareaRef.current) {
+        textareaRef.current.style.height = 'auto';
+    }
     setSending(true);
     
     try {
@@ -94,6 +101,35 @@ const ReadingRoomPage: React.FC = () => {
     } finally {
       setSending(false);
     }
+  };
+  
+  const handleInputChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+      setInput(e.target.value);
+      adjustTextareaHeight();
+  };
+
+  const adjustTextareaHeight = () => {
+      if (textareaRef.current) {
+          textareaRef.current.style.height = 'auto';
+          textareaRef.current.style.height = `${Math.min(textareaRef.current.scrollHeight, 200)}px`;
+      }
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
+      if (e.key === 'Enter' && !e.shiftKey) {
+          e.preventDefault();
+          handleSend();
+      }
+  };
+  
+  const handleNewChat = async () => {
+      if (!paperId || !window.confirm("Start a new chat? This will clear current conversation history.")) return;
+      try {
+          await papersApi.clearChat(paperId);
+          setMessages([]);
+      } catch (error) {
+          console.error("Failed to clear chat", error);
+      }
   };
 
   const handleSaveNotes = async () => {
@@ -111,7 +147,12 @@ const ReadingRoomPage: React.FC = () => {
   const handleCreateCollection = async () => {
       if (!newCollectionName.trim()) return;
       try {
-          await collectionsApi.create(newCollectionName);
+          if (targetParentCollection) {
+              await collectionsApi.create(newCollectionName, targetParentCollection.id);
+              setTargetParentCollection(null);
+          } else {
+              await collectionsApi.create(newCollectionName);
+          }
           setNewCollectionName('');
           fetchCollections();
       } catch (e) {
@@ -146,17 +187,10 @@ const ReadingRoomPage: React.FC = () => {
       }
   };
 
-  const handleCreateSubCollection = async (parentId: string, e: React.MouseEvent) => {
+  const handleCreateSubCollection = (parentId: string, parentName: string, e: React.MouseEvent) => {
       e.stopPropagation();
-      const name = window.prompt("Enter name for sub-collection:");
-      if (!name || !name.trim()) return;
-      
-      try {
-          await collectionsApi.create(name, parentId);
-          fetchCollections();
-      } catch (error) {
-          console.error("Failed to create sub-collection", error);
-      }
+      setTargetParentCollection({id: parentId, name: parentName});
+      setNewCollectionName('');
   };
 
   const handleMouseDown = (e: React.MouseEvent) => {
@@ -212,7 +246,7 @@ const ReadingRoomPage: React.FC = () => {
             </div>
             <div className="flex items-center gap-2">
                 <button
-                    onClick={(e) => handleCreateSubCollection(col.id, e)}
+                    onClick={(e) => handleCreateSubCollection(col.id, col.name, e)}
                     className="p-1 text-gray-400 hover:text-blue-500 opacity-0 group-hover:opacity-100 transition-opacity"
                     title="Add Sub-collection"
                 >
@@ -306,7 +340,7 @@ const ReadingRoomPage: React.FC = () => {
                 {/* Right Panel (Chat/Notes/Collections) */}
                 <div style={{ width: rightPanelWidth }} className="flex flex-col bg-white shrink-0 border-l border-gray-200">
                     {activeTab === 'chat' && (
-                        <>
+                        <div className="flex flex-col h-full">
                             <div className="flex-1 overflow-y-auto p-4 space-y-4">
                                 {messages.length === 0 && (
                                     <div className="text-center text-gray-400 text-sm mt-10">
@@ -314,16 +348,27 @@ const ReadingRoomPage: React.FC = () => {
                                     </div>
                                 )}
                                 {messages.map((msg, idx) => (
-                                    <div key={idx} className={clsx("flex", msg.role === 'user' ? "justify-end" : "justify-start")}>
+                                    <div key={idx} className={clsx("flex flex-col mb-4", msg.role === 'user' ? "items-end" : "items-start")}>
                                         <div className={clsx(
-                                            "max-w-[90%] rounded-2xl px-4 py-3 text-sm relative group",
+                                            "max-w-[90%] rounded-2xl px-4 py-3 text-sm relative group shadow-sm",
                                             msg.role === 'user' 
                                                 ? "bg-blue-600 text-white rounded-br-none" 
-                                                : "bg-gray-100 text-gray-800 rounded-bl-none"
+                                                : "bg-white border border-gray-100 text-gray-800 rounded-bl-none"
                                         )}>
-                                            <ReactMarkdown>{msg.content}</ReactMarkdown>
+                                            <div className="prose prose-sm max-w-none prose-p:leading-loose prose-li:leading-loose prose-headings:leading-loose dark:prose-invert space-y-4">
+                                                <ReactMarkdown 
+                                                    remarkPlugins={[remarkMath]} 
+                                                    rehypePlugins={[rehypeKatex]}
+                                                    components={{
+                                                        p: ({node, ...props}) => <p className="mb-4 last:mb-0" {...props} />,
+                                                        li: ({node, ...props}) => <li className="mb-2 last:mb-0" {...props} />
+                                                    }}
+                                                >
+                                                    {msg.content}
+                                                </ReactMarkdown>
+                                            </div>
                                             {msg.role === 'assistant' && (msg.cost !== undefined || msg.time_cost !== undefined) && (
-                                                <div className="mt-2 pt-2 border-t border-gray-200/50 flex gap-3 text-[10px] text-gray-400 font-mono">
+                                                <div className="mt-2 pt-2 border-t border-gray-100 flex gap-3 text-[10px] text-gray-400 font-mono not-prose">
                                                     {msg.cost !== undefined && (
                                                         <span>Cost: ${msg.cost.toFixed(6)}</span>
                                                     )}
@@ -336,7 +381,7 @@ const ReadingRoomPage: React.FC = () => {
                                     </div>
                                 ))}
                                 {sending && (
-                                    <div className="flex justify-start">
+                                    <div className="flex justify-start mb-4">
                                         <div className="bg-gray-100 rounded-2xl px-4 py-3 text-sm rounded-bl-none text-gray-500 animate-pulse">
                                             Thinking...
                                         </div>
@@ -344,27 +389,37 @@ const ReadingRoomPage: React.FC = () => {
                                 )}
                                 <div ref={chatEndRef} />
                             </div>
-                            <div className="p-4 border-t border-gray-200">
-                                <div className="flex gap-2">
-                                    <input
-                                        type="text"
-                                        value={input}
-                                        onChange={(e) => setInput(e.target.value)}
-                                        onKeyDown={(e) => e.key === 'Enter' && handleSend()}
-                                        placeholder="Ask about the paper..."
-                                        className="flex-1 px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                                        disabled={sending}
-                                    />
+                            
+                            <div className="p-4 border-t border-gray-200 bg-white">
+                                <div className="flex gap-2 items-end">
                                     <button
-                                        onClick={handleSend}
-                                        disabled={sending || !input.trim()}
-                                        className="bg-blue-600 text-white p-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                                        onClick={handleNewChat}
+                                        className="p-2 text-gray-400 hover:text-red-500 transition-colors mb-1"
+                                        title="New Chat (Clear History)"
                                     >
-                                        <Send size={20} />
+                                        <MessageSquarePlus size={20} />
                                     </button>
+                                    <div className="flex-1 relative">
+                                        <textarea
+                                            ref={textareaRef}
+                                            value={input}
+                                            onChange={handleInputChange}
+                                            onKeyDown={handleKeyDown}
+                                            placeholder="Ask about the paper..."
+                                            rows={1}
+                                            className="w-full px-4 py-3 border border-gray-300 rounded-xl focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-none overflow-hidden min-h-[44px] max-h-[200px] leading-relaxed pr-12"
+                                        />
+                                        <button
+                                            onClick={handleSend}
+                                            disabled={sending || !input.trim()}
+                                            className="absolute right-2 bottom-2 bg-blue-600 text-white p-1.5 rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                                        >
+                                            <Send size={16} />
+                                        </button>
+                                    </div>
                                 </div>
                             </div>
-                        </>
+                        </div>
                     )}
                     
                     {activeTab === 'notes' && (
@@ -394,13 +449,22 @@ const ReadingRoomPage: React.FC = () => {
                             <h3 className="text-sm font-semibold text-gray-700 mb-4">Manage Collections</h3>
                             
                             <div className="flex gap-2 mb-6">
-                                <input 
-                                    type="text" 
-                                    value={newCollectionName}
-                                    onChange={e => setNewCollectionName(e.target.value)}
-                                    placeholder="New collection..."
-                                    className="flex-1 px-3 py-1.5 text-sm border border-gray-300 rounded-lg"
-                                />
+                                <div className="flex-1 flex items-center gap-1 border border-gray-300 rounded-lg px-3 py-1.5 bg-white">
+                                    {targetParentCollection && (
+                                        <div className="flex items-center gap-1 bg-blue-100 text-blue-700 px-2 py-0.5 rounded text-xs shrink-0">
+                                            <span>in: {targetParentCollection.name}</span>
+                                            <button onClick={() => setTargetParentCollection(null)} className="hover:text-blue-900"><X size={12} /></button>
+                                        </div>
+                                    )}
+                                    <input 
+                                        type="text" 
+                                        value={newCollectionName}
+                                        onChange={e => setNewCollectionName(e.target.value)}
+                                        onKeyDown={(e) => e.key === 'Enter' && handleCreateCollection()}
+                                        placeholder={targetParentCollection ? "New sub-collection..." : "New collection..."}
+                                        className="flex-1 text-sm outline-none bg-transparent min-w-0"
+                                    />
+                                </div>
                                 <button 
                                     onClick={handleCreateCollection}
                                     className="bg-gray-100 hover:bg-gray-200 text-gray-700 px-3 py-1.5 rounded-lg"

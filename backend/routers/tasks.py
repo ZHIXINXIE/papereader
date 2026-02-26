@@ -33,6 +33,33 @@ def create_task(task: schemas.TaskCreate, db: Session = Depends(get_db)):
     db.refresh(db_task)
     return db_task
 
+@router.post("/{task_id}/reread")
+def reread_task(task_id: str, request: schemas.ReReadRequest, db: Session = Depends(get_db)):
+    task = db.query(models.Task).filter(models.Task.id == task_id).first()
+    if not task:
+        raise HTTPException(status_code=404, detail="Task not found")
+
+    # Update Task defaults if provided
+    if request.template_id:
+        task.template_id = request.template_id
+    if request.model_name:
+        task.model_name = request.model_name
+    
+    # Reset all papers in task
+    papers = db.query(models.Paper).filter(models.Paper.task_id == task.id).all()
+    for paper in papers:
+        paper.status = "queued"
+        paper.failure_reason = None
+        # Also update paper-specific overrides to match the request explicitly
+        if request.template_id:
+            paper.template_id = request.template_id
+        if request.model_name:
+            paper.model_name = request.model_name
+            
+    task.status = "running" # Ensure task is running so processor picks it up
+    db.commit()
+    return {"ok": True, "count": len(papers)}
+
 @router.get("/", response_model=List[schemas.TaskWithStats])
 def read_tasks(skip: int = 0, limit: int = 100, db: Session = Depends(get_db)):
     tasks = db.query(models.Task).filter(models.Task.user_id == DEFAULT_USER_ID).order_by(models.Task.created_at.desc()).offset(skip).limit(limit).all()

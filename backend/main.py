@@ -9,7 +9,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 from fastapi.staticfiles import StaticFiles
-from database import engine, Base, SessionLocal, DATA_DIR
+from database import engine, Base, SessionLocal, DATA_DIR, check_and_migrate_database
 import models
 from routers import templates, tasks, papers, collections
 from processor import processor_loop
@@ -20,6 +20,15 @@ logger = logging.getLogger(__name__)
 
 # Create tables
 models.Base.metadata.create_all(bind=engine)
+
+# Perform backward compatibility migrations
+try:
+    check_and_migrate_database()
+except Exception as e:
+    logger.error(f"Database migration failed: {e}")
+    # We might want to stop startup if DB is critical mismatch
+    # but for now we log it. In production, we should probably exit.
+    pass
 
 app = FastAPI(title="Paper Reader API", version="1.0.0")
 

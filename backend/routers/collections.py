@@ -99,6 +99,52 @@ def add_paper_to_collection(collection_id: str, paper_id: str, db: Session = Dep
     db.commit()
     return {"ok": True}
 
+@router.post("/{collection_id}/reread")
+def reread_collection(collection_id: str, request: schemas.ReReadRequest, db: Session = Depends(get_db)):
+    collection = db.query(models.Collection).filter(models.Collection.id == collection_id).first()
+    if not collection:
+        raise HTTPException(status_code=404, detail="Collection not found")
+
+    # Get all papers in collection recursively
+    def get_all_paper_ids(col_id):
+        p_ids = set()
+        # Papers in this collection
+        pcs = db.query(models.PaperCollection).filter(models.PaperCollection.collection_id == col_id).all()
+        for pc in pcs:
+            p_ids.add(pc.paper_id)
+        
+        # Sub-collections
+        children = db.query(models.Collection).filter(models.Collection.parent_id == col_id).all()
+        for child in children:
+            p_ids.update(get_all_paper_ids(child.id))
+        return p_ids
+
+    paper_ids = get_all_paper_ids(collection_id)
+    
+    if not paper_ids:
+        return {"ok": True, "count": 0}
+
+    papers = db.query(models.Paper).filter(models.Paper.id.in_(paper_ids)).all()
+    
+    for paper in papers:
+        # Reset status
+        paper.status = "queued"
+        paper.failure_reason = None
+        
+        # Apply overrides
+        if request.template_id:
+            paper.template_id = request.template_id
+        if request.model_name:
+            paper.model_name = request.model_name
+            
+        # Ensure parent task is running
+        task = db.query(models.Task).filter(models.Task.id == paper.task_id).first()
+        if task and task.status != "running":
+            task.status = "running"
+            
+    db.commit()
+    return {"ok": True, "count": len(papers)}
+
 @router.delete("/{collection_id}/papers/{paper_id}")
 def remove_paper_from_collection(collection_id: str, paper_id: str, db: Session = Depends(get_db)):
     pc = db.query(models.PaperCollection).filter(models.PaperCollection.collection_id == collection_id, models.PaperCollection.paper_id == paper_id).first()

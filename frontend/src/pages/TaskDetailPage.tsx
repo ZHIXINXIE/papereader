@@ -2,7 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { Play, Pause, Square, Plus, RefreshCw, FileText, ExternalLink, AlertCircle, CheckCircle, Trash2 } from 'lucide-react';
 import Layout from '../components/Layout';
-import { tasksApi } from '../api/services';
+import ReReadModal from '../components/ReReadModal';
+import { tasksApi, papersApi } from '../api/services';
 import { Task, Paper } from '../types';
 import clsx from 'clsx';
 
@@ -14,6 +15,7 @@ const TaskDetailPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [paperList, setPaperList] = useState<string[]>(['']);
   const [addingPapers, setAddingPapers] = useState(false);
+  const [isReReadModalOpen, setIsReReadModalOpen] = useState(false);
 
   const fetchData = async () => {
     if (!id) return;
@@ -79,6 +81,35 @@ const TaskDetailPage: React.FC = () => {
     setPaperList(newList);
   };
 
+  const handleRetry = async (paperId: string) => {
+    try {
+      await papersApi.retry(paperId);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to retry paper:', error);
+    }
+  };
+
+  const handleDelete = async (paperId: string) => {
+    if (!window.confirm('Are you sure you want to delete this paper?')) return;
+    try {
+      await papersApi.delete(paperId);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to delete paper:', error);
+    }
+  };
+
+  const handleReRead = async (templateId: string, modelName: string) => {
+    if (!id) return;
+    try {
+      await tasksApi.reRead(id, templateId, modelName);
+      fetchData();
+    } catch (error) {
+      console.error('Failed to reread task:', error);
+    }
+  };
+
   if (loading) return <Layout><div>Loading...</div></Layout>;
   if (!task) return <Layout><div>Task not found</div></Layout>;
 
@@ -127,6 +158,12 @@ const TaskDetailPage: React.FC = () => {
                 <Square size={18} /> Finish
               </button>
             )}
+            <button
+                onClick={() => setIsReReadModalOpen(true)}
+                className="flex items-center gap-2 px-4 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 transition-colors"
+            >
+                <RefreshCw size={18} /> Re-read
+            </button>
           </div>
         </div>
 
@@ -193,8 +230,25 @@ const TaskDetailPage: React.FC = () => {
                       <span className="text-gray-400 text-sm">Queued</span>
                     )}
                     {paper.status === 'failed' && (
-                      <span className="text-red-500 text-sm font-medium">Failed</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-red-500 text-sm font-medium">Failed</span>
+                        <button
+                          onClick={() => handleRetry(paper.id)}
+                          className="p-2 text-gray-600 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+                          title="Retry"
+                        >
+                          <RefreshCw size={18} />
+                        </button>
+                      </div>
                     )}
+                    
+                    <button
+                      onClick={() => handleDelete(paper.id)}
+                      className="p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors ml-2"
+                      title="Delete"
+                    >
+                      <Trash2 size={18} />
+                    </button>
                   </div>
                 </div>
               </div>
@@ -251,6 +305,13 @@ const TaskDetailPage: React.FC = () => {
           </div>
         </div>
       </div>
+
+      <ReReadModal
+        isOpen={isReReadModalOpen}
+        onClose={() => setIsReReadModalOpen(false)}
+        onConfirm={handleReRead}
+        title="Re-read Task"
+      />
     </Layout>
   );
 };

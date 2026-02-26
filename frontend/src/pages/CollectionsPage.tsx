@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import Layout from '../components/Layout';
+import ReReadModal from '../components/ReReadModal';
 import { collectionsApi } from '../api/services';
 import { Collection, Paper } from '../types';
-import { Plus, Folder, Trash2, ChevronRight, ChevronDown, FileText } from 'lucide-react';
+import { Plus, Folder, Trash2, ChevronRight, ChevronDown, FileText, RefreshCw } from 'lucide-react';
 import clsx from 'clsx';
 
 // Tree Node Component
@@ -13,7 +14,8 @@ const CollectionNode: React.FC<{
   allCollections: Collection[];
   onDelete: (id: string) => void;
   onCreateSub: (parentId: string) => void;
-}> = ({ collection, level, allCollections, onDelete, onCreateSub }) => {
+  onReRead: (id: string) => void;
+}> = ({ collection, level, allCollections, onDelete, onCreateSub, onReRead }) => {
   const navigate = useNavigate();
   const [expanded, setExpanded] = useState(false);
   const [papers, setPapers] = useState<Paper[]>([]);
@@ -59,6 +61,13 @@ const CollectionNode: React.FC<{
         
         <div className="opacity-0 group-hover:opacity-100 flex gap-2">
             <button 
+                onClick={(e) => { e.stopPropagation(); onReRead(collection.id); }}
+                className="p-1 text-gray-400 hover:text-indigo-500"
+                title="Re-read Collection"
+            >
+                <RefreshCw size={14} />
+            </button>
+            <button 
                 onClick={(e) => { e.stopPropagation(); onCreateSub(collection.id); }}
                 className="p-1 text-gray-400 hover:text-blue-500"
                 title="Create Sub-collection"
@@ -86,6 +95,7 @@ const CollectionNode: React.FC<{
                 allCollections={allCollections}
                 onDelete={onDelete}
                 onCreateSub={onCreateSub}
+                onReRead={onReRead}
             />
           ))}
           
@@ -117,6 +127,7 @@ const CollectionsPage: React.FC = () => {
   const [showCreate, setShowCreate] = useState(false);
   const [newName, setNewName] = useState('');
   const [targetParentId, setTargetParentId] = useState<string | undefined>(undefined);
+  const [reReadTargetId, setReReadTargetId] = useState<string | null>(null);
 
   const fetchCollections = async () => {
     try {
@@ -146,11 +157,26 @@ const CollectionsPage: React.FC = () => {
   };
 
   const handleDelete = async (id: string) => {
+    if (!window.confirm('Are you sure you want to delete this collection?')) return;
     try {
       await collectionsApi.delete(id);
       fetchCollections();
     } catch (error) {
       console.error('Failed to delete collection:', error);
+    }
+  };
+
+  const handleReReadClick = (id: string) => {
+    setReReadTargetId(id);
+  };
+
+  const handleReReadConfirm = async (templateId: string, modelName: string) => {
+    if (!reReadTargetId) return;
+    try {
+      await collectionsApi.reRead(reReadTargetId, templateId, modelName);
+      // Optional: show toast or something
+    } catch (error) {
+      console.error('Failed to reread collection:', error);
     }
   };
 
@@ -205,26 +231,33 @@ const CollectionsPage: React.FC = () => {
           </div>
       )}
 
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm p-4 min-h-[400px]">
+      {/* Root Collections */}
+      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {rootCollections.length === 0 ? (
-            <div className="text-center text-gray-500 py-10">
+            <div className="p-8 text-center text-gray-500">
                 No collections yet. Create one to get started.
             </div>
         ) : (
-            <div className="space-y-1">
-                {rootCollections.map(collection => (
-                    <CollectionNode
-                        key={collection.id}
-                        collection={collection}
-                        level={0}
-                        allCollections={collections}
-                        onDelete={handleDelete}
-                        onCreateSub={openCreate}
-                    />
-                ))}
-            </div>
+            rootCollections.map(collection => (
+                <CollectionNode 
+                    key={collection.id} 
+                    collection={collection} 
+                    level={0} 
+                    allCollections={collections}
+                    onDelete={handleDelete}
+                    onCreateSub={(parentId) => openCreate(parentId)}
+                    onReRead={handleReReadClick}
+                />
+            ))
         )}
       </div>
+
+      <ReReadModal
+        isOpen={!!reReadTargetId}
+        onClose={() => setReReadTargetId(null)}
+        onConfirm={handleReReadConfirm}
+        title="Re-read Collection"
+      />
     </Layout>
   );
 };
