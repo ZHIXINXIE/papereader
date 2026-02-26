@@ -93,6 +93,49 @@ Directly run `node -v` in the terminal to check if node.js is installed successf
 cd frontend
 npm install
 ```
+### 4. (Optional) Add Alias / 添加别名
+Running `python start.py` in the corresponding folder every time might be a bit cumbersome. Therefore, consider packaging these steps into a single command that can be executed directly from the command line. Alternatively, you could package it into a batch file.
+如果每一次都要到对应的文件夹去执行python start.py，可能有一点麻烦。所以可以考虑将这些步骤打包成一个在命令行可以直接执行的命令。或者也可以将它直接打包为一个批处理文件.
+
+In Windows, you can do as the follow:
+在 Windows 系统中，您可以按以下步骤操作：
+1. open powershell
+打开 PowerShell
+2. run notepad $PROFILE
+运行 notepad $PROFILE
+3. add the following lines to the files:
+将以下几行添加到文件中：
+```bash
+  function paperreader {
+      cd ../../paperreader(your paperreader project folder)
+      conda activate paperreader
+      python .\start.py
+  }
+```
+4. open a new powershell window and run `paperreader` to start the application.
+打开一个新的 PowerShell 窗口，运行 `paperreader` 来启动应用程序。
+
+在 Linux 或 macOS 系统中，您可以按以下步骤操作：
+1. Open a terminal.
+打开终端
+2. Run `nano ~/.bashrc` or `nano ~/.zshrc` (depending on your shell).
+运行 `nano ~/.bashrc` 或 `nano ~/.zshrc` （根据您的 shell 类型）
+3. Add the following lines to your file:
+将以下几行添加到文件中：
+
+```bash
+  function paperreader {
+      cd ../../paperreader(your paperreader project folder)
+      conda activate paperreader
+      python .\start.py
+  }
+```
+4. Save the file and exit the editor.
+保存文件并退出编辑器
+
+5. Run `source ~/.bashrc` or `source ~/.zshrc` (depending on your shell) to activate the alias.
+运行 `source ~/.bashrc` 或 `source ~/.zshrc` （根据您的 shell 类型）来使别名生效。
+
 
 ## Running the Application / 运行应用
 

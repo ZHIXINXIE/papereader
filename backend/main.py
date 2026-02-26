@@ -36,11 +36,12 @@ app = FastAPI(title="Paper Reader API", version="1.0.0")
 origins = [
     "http://localhost:5173",  # Vite default port
     "http://127.0.0.1:5173",
+    "*", # Allow extensions and other origins
 ]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
+    allow_origins=["*"], # Allow all for local tool convenience
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
