@@ -29,7 +29,7 @@ Paper Reader 是一个本地 AI 驱动的学术论文阅读助手。它帮助你
 ### 1. Clone the Repository / 克隆仓库
 
 ```bash
-git clone https://github.com/ZHIXINXIE/papereader.git
+git clone https://github.com/hdhacker416/papereader.git
 cd papereader
 ```
 
